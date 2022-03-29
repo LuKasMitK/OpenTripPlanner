@@ -49,6 +49,10 @@ public class CommandLineParameters implements Cloneable {
     )
     public boolean build = false;
 
+    @Parameter(names = {"--tp"},
+            description = "Build transfer patterns with loaded graph.")
+    public boolean tp;
+
     @Parameter(
             names = {"--buildStreet" },
             description = "Build street graph from OSM and DEM data. Load files from local file "

@@ -5,6 +5,7 @@ import com.beust.jcommander.ParameterException;
 import org.opentripplanner.common.MavenVersion;
 import org.opentripplanner.datastore.DataSource;
 import org.opentripplanner.graph_builder.GraphBuilder;
+import org.opentripplanner.graph_builder.module.TransferPatternsModule;
 import org.opentripplanner.routing.graph.Graph;
 import org.opentripplanner.routing.graph.SerializedGraphObject;
 import org.opentripplanner.standalone.config.CommandLineParameters;
@@ -135,6 +136,11 @@ public class OTPMain {
         if(graph == null) {
             LOG.error("Nothing to do, no graph loaded or build. Exiting.");
             System.exit(101);
+        }
+
+        if(params.tp) {
+            TransferPatternsModule tp = new TransferPatternsModule();
+            tp.buildGraph(graph, null);
         }
 
         if(!params.doServe()) {
