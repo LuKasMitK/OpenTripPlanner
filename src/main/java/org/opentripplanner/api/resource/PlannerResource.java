@@ -39,96 +39,117 @@ public class PlannerResource extends RoutingResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(PlannerResource.class);
 
-    /**
-     * @deprecated The support for multiple routers are removed from OTP2.
-     * See https://github.com/opentripplanner/OpenTripPlanner/issues/2760
-     */
-    @Deprecated @PathParam("ignoreRouterId")
-    private String ignoreRouterId;
+	private static final boolean tp = true;
 
-    // We inject info about the incoming request so we can include the incoming query
-    // parameters in the outgoing response. This is a TriMet requirement.
-    // Jersey uses @Context to inject internal types and @InjectParam or @Resource for DI objects.
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    public TripPlannerResponse plan(@Context UriInfo uriInfo, @Context Request grizzlyRequest) {
+	// We inject info about the incoming request so we can include the incoming query
+	// parameters in the outgoing response. This is a TriMet requirement.
+	// Jersey uses @Context to inject internal types and @InjectParam or @Resource for DI objects.
+	@GET
+	@Produces({ MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML + Q, MediaType.TEXT_XML + Q })
+	public Response plan(@Context UriInfo uriInfo, @Context Request grizzlyRequest) {
 
-        /*
-         * TODO: add Lang / Locale parameter, and thus get localized content (Messages & more...)
-         * TODO: from/to inputs should be converted / geocoded / etc... here, and maybe send coords 
-         *       or vertex ids to planner (or error back to user)
-         * TODO: org.opentripplanner.routing.module.PathServiceImpl has COOORD parsing. Abstract that
-         *       out so it's used here too...
-         */
+		/*
+		 * TODO: add Lang / Locale parameter, and thus get localized content
+		 * (Messages & more...) TODO: from/to inputs should be converted /
+		 * geocoded / etc... here, and maybe send coords or vertex ids to
+		 * planner (or error back to user) TODO:
+		 * org.opentripplanner.routing.module.PathServiceImpl has COOORD
+		 * parsing. Abstract that out so it's used here too...
+		 */
 
-        // Create response object, containing a copy of all request parameters. Maybe they should be in the debug section of the response.
-        TripPlannerResponse response = new TripPlannerResponse(uriInfo);
-        RoutingRequest request = null;
-        Router router = null;
-        RoutingResponse res = null;
-        try {
+		// Create response object, containing a copy of all request parameters. Maybe they should be in the debug section of the response.
+		Response response = new Response(uriInfo);
+		RoutingRequest request = null;
+		Router router = null;
+		List<GraphPath> paths = null;
+		try {
 
-            /* Fill in request fields from query parameters via shared superclass method, catching any errors. */
-            request = super.buildRequest();
-            router = otpServer.getRouter();
+			/*
+			 * Fill in request fields from query parameters via shared
+			 * superclass method, catching any errors.
+			 */
+			request = super.buildRequest();
+			router = otpServer.getRouter(request.routerId);
 
-            // Route
-            RoutingService routingService = new RoutingService(router.graph);
-            res = routingService.route(request, router);
+			TripPlan plan;
 
-            // Map to API
-            TripPlanMapper tripPlanMapper = new TripPlanMapper(request.locale);
-            response.setPlan(tripPlanMapper.mapTripPlan(res.getTripPlan()));
-            response.setMetadata(TripSearchMetadataMapper.mapTripSearchMetadata(res.getMetadata()));
-            if (!res.getRoutingErrors().isEmpty()) {
-                // The api can only return one error message, so the first one is mapped
-                response.setError(PlannerErrorMapper.mapMessage(res.getRoutingErrors().get(0)));
-            }
+			final ThreadMXBean threadBean = ManagementFactory.getThreadMXBean();
+			final long currentThread = Thread.currentThread().getId();
+			long startTime = threadBean.getThreadCpuTime(currentThread);
 
-            /* Populate up the elevation metadata */
-            response.elevationMetadata = new ElevationMetadata();
-            response.elevationMetadata.ellipsoidToGeoidDifference = router.graph.ellipsoidToGeoidDifference;
-            response.elevationMetadata.geoidElevation = request.geoidElevation;
+			boolean useTp = tp && router.graph.tp != null;
+			if (tp && router.graph.tp == null)
+				LOG.error("Route is supposed to be found with transfer patterns, however these are not found.");
 
-            response.debugOutput = res.getDebugAggregator().finishedRendering();
-        }
-        catch (Exception e) {
-            LOG.error("System error", e);
-            PlannerError error = new PlannerError();
-            error.setMsg(Message.SYSTEM_ERROR);
-            response.setError(error);
-        }
+			if (useTp) {
+				TransferPatternPathFinder tpPathFinder = new TransferPatternPathFinder(router);
+				List<TPJourney> journeys = tpPathFinder.findJourneys(request);
 
-        /* Log this request if such logging is enabled. */
-        if (request != null && router != null && router.requestLogger != null) {
-            StringBuilder sb = new StringBuilder();
-            String clientIpAddress = grizzlyRequest.getRemoteAddr();
-            //sb.append(LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME));
-            sb.append(clientIpAddress);
-            sb.append(' ');
-            sb.append(request.arriveBy ? "ARRIVE" : "DEPART");
-            sb.append(' ');
-            sb.append(LocalDateTime.ofInstant(Instant.ofEpochSecond(request.dateTime), ZoneId.systemDefault()));
-            sb.append(' ');
-            sb.append(request.streetSubRequestModes.getAsStr());
-            sb.append(' ');
-            sb.append(request.from.lat);
-            sb.append(' ');
-            sb.append(request.from.lng);
-            sb.append(' ');
-            sb.append(request.to.lat);
-            sb.append(' ');
-            sb.append(request.to.lng);
-            sb.append(' ');
-            if (res != null) {
-                for (Itinerary it : res.getTripPlan().itineraries) {
-                    sb.append(it.durationSeconds);
-                    sb.append(' ');
-                }
-            }
-            router.requestLogger.info(sb.toString());
-        }
+				/*
+				 * Convert the internal GraphPaths to a TripPlan object that is
+				 * included in an OTP web service Response.
+				 */
+				plan = TransferPatternToTripPlanConverter.generatePlan(journeys, request);
+			} else {
+				/* Find some good GraphPaths through the OTP Graph. */
+				GraphPathFinder gpFinder = new GraphPathFinder(router); // we could also get a persistent router-scoped GraphPathFinder but there's no setup cost here
+				paths = gpFinder.graphPathFinderEntryPoint(request);
 
-        return response;
-    }
+				/*
+				 * Convert the internal GraphPaths to a TripPlan object that is
+				 * included in an OTP web service Response.
+				 */
+				plan = GraphPathToTripPlanConverter.generatePlan(paths, request);
+			}
+
+			int time = (int) (threadBean.getThreadCpuTime(currentThread) - startTime) / 1000000;
+			LOG.info("Calculating trip(s) took " + time + "ms using " + (useTp ? "TP" : "A*"));
+
+			response.setPlan(plan);
+		} catch (Exception e) {
+			PlannerError error = new PlannerError(e);
+			if (!PlannerError.isPlanningError(e.getClass()))
+				LOG.warn("Error while planning path: ", e);
+			response.setError(error);
+		} finally {
+			if (request != null) {
+				if (request.rctx != null) {
+					response.debugOutput = request.rctx.debugOutput;
+				}
+				request.cleanup(); // TODO verify that this cleanup step is being done on Analyst web services
+			}
+		}
+		/* Log this request if such logging is enabled. */
+		if (request != null && router != null && router.requestLogger != null) {
+			StringBuilder sb = new StringBuilder();
+			String clientIpAddress = grizzlyRequest.getRemoteAddr();
+			//sb.append(LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME));
+			sb.append(clientIpAddress);
+			sb.append(' ');
+			sb.append(request.arriveBy ? "ARRIVE" : "DEPART");
+			sb.append(' ');
+			sb.append(LocalDateTime.ofInstant(Instant.ofEpochSecond(request.dateTime), ZoneId.systemDefault()));
+			sb.append(' ');
+			sb.append(request.modes.getAsStr());
+			sb.append(' ');
+			sb.append(request.from.lat);
+			sb.append(' ');
+			sb.append(request.from.lng);
+			sb.append(' ');
+			sb.append(request.to.lat);
+			sb.append(' ');
+			sb.append(request.to.lng);
+			sb.append(' ');
+			if (paths != null) {
+				for (GraphPath path : paths) {
+					sb.append(path.getDuration());
+					sb.append(' ');
+					sb.append(path.getTrips().size());
+					sb.append(' ');
+				}
+			}
+			router.requestLogger.info(sb.toString());
+		}
+		return response;
+	}
 }
