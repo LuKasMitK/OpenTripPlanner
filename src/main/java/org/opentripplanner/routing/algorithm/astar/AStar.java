@@ -31,8 +31,7 @@ import java.util.List;
  * Always make one new instance of this class per request, it contains a lot of state fields.
  */
 public class AStar {
-
-    private static final Logger LOG = LoggerFactory.getLogger(AStar.class);
+	private static final Logger LOG = LoggerFactory.getLogger(AStar.class);
 	// FIXME this is not really a factory, it's a way to fake a global variable. This should be stored at the OTPServer level.
 	private static final MonitoringStore store = MonitoringStoreFactory.getStore();
 	private static final double OVERSEARCH_MULTIPLIER = 4.0;
@@ -45,8 +44,6 @@ public class AStar {
 		RUNNING,
 		STOPPED
 	}
-
-    //TODO here was something deleted, might be important!
 
 	/*
 	 * TODO instead of having a separate class for search state, we should just

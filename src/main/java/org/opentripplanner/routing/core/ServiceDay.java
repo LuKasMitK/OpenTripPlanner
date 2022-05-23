@@ -129,5 +129,6 @@ public class ServiceDay implements Serializable {
 	public int hashCode() {
 		return (int) midnight;
 	}
+
     
 }
