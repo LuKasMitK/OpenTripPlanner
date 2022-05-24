@@ -1,5 +1,7 @@
 package org.opentripplanner.routing.spt;
 
+
+//TODO: GraphPath does not contain Trips any longer. Check where did they go and where to add stuff!
 import java.util.LinkedList;
 
 import org.opentripplanner.routing.core.RoutingContext;

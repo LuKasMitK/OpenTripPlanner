@@ -46,6 +46,8 @@ public class GraphPathFinder {
     private static final double DEFAULT_MAX_WALK = 2000;
     private static final double CLAMP_MAX_WALK = 15000;
 
+    private int numVisitedNodes;
+
     Router router;
 
     public GraphPathFinder(Router router) {
@@ -114,7 +116,10 @@ public class GraphPathFinder {
         // Don't dig through the SPT object, just ask the A star algorithm for the states that reached the target.
         aStar.getShortestPathTree(options, timeout);
 
-        List<GraphPath> paths = aStar.getPathsToTarget().stream()
+        List<GraphPath> paths = aStar.getPathsToTarget();
+        if(paths.isEmpty())
+            numVisitedNodes = aStar.getVisitedNodeCount();
+        paths = paths.stream()
                 .filter(path -> {
                     double duration = options.useRequestedDateTimeInMaxHours
                         ? options.arriveBy
@@ -124,7 +129,8 @@ public class GraphPathFinder {
                     return duration < options.maxHours * 60 * 60;
                 })
                 .collect(Collectors.toList());
-
+        
+        
         LOG.debug("we have {} paths", paths.size());
         LOG.debug("END SEARCH ({} msec)", System.currentTimeMillis() - searchBeginTime);
         Collections.sort(paths, options.getPathComparator(options.arriveBy));
@@ -187,4 +193,11 @@ public class GraphPathFinder {
 
         return paths;
     }
+
+    /**
+	 * @return the numVisitedNodes
+	 */
+	public int getVisitedNodeCount() {
+    		return numVisitedNodes;
+    	}
 }

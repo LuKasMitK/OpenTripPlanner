@@ -49,9 +49,28 @@ public class CommandLineParameters implements Cloneable {
     )
     public boolean build = false;
 
-    @Parameter(names = {"--tp"},
-            description = "Build transfer patterns with loaded graph.")
-    public boolean tp;
+    // START TP
+    @Parameter(names = {"--buildTp"}, 
+        description = "Build transfer patterns with loaded graph.")
+    public boolean buildTp;
+    
+    @Parameter(names = {"--mergeTp"}, 
+    		description = "Merge transfer pattern chunks.")
+    public Integer mergeTp;
+    
+    @Parameter(names = {"--chunk"},
+    		description = "Chunk of transfer patterns to calculate. Specify as n/m where n is the number of the chunk to calculate, and m is total the total number of chunks")
+    public String tpChunk;
+    
+    @Parameter(names = {"--compareTpAstar"}, 
+    		description = "Compare Transfer Patterns with A* on given graph.")
+    public boolean compareTpAstar;
+    
+    @Parameter(names = {"--tpStats"}, 
+    		description = "Print statistics of main TP graph.")
+    public boolean tpStats;
+    // END TP
+    
 
     @Parameter(
             names = {"--buildStreet" },

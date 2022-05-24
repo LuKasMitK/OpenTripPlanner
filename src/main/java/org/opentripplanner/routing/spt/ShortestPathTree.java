@@ -36,7 +36,8 @@ public class ShortestPathTree {
     public ShortestPathTree (RoutingRequest options, DominanceFunction dominanceFunction) {
         this.options = options;
         this.dominanceFunction = dominanceFunction;
-        stateSets = new IdentityHashMap<Vertex, List<State>>();
+        final int startSize = options.rctx.graph.countVertices()/5;
+        stateSets = new IdentityHashMap<Vertex, List<State>>(startSize);
     }
 
     /** @return a list of GraphPaths, sometimes empty but never null. */

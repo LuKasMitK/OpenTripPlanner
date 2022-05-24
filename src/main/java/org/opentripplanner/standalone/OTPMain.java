@@ -2,11 +2,16 @@ package org.opentripplanner.standalone;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
+import java.io.IOException;
+import org.opentripplanner.api.resource.TpAstarComparison;
 import org.opentripplanner.common.MavenVersion;
 import org.opentripplanner.datastore.DataSource;
 import org.opentripplanner.graph_builder.GraphBuilder;
 import org.opentripplanner.graph_builder.module.TransferPatternsModule;
 import org.opentripplanner.routing.graph.Graph;
+import org.opentripplanner.routing.graph.TransferPatternGraphBuilder;
+import org.opentripplanner.routing.graph.TransferPatternGraphCleaner;
+import org.opentripplanner.routing.graph.TransferPatternGraphMerger;
 import org.opentripplanner.routing.graph.SerializedGraphObject;
 import org.opentripplanner.standalone.config.CommandLineParameters;
 import org.opentripplanner.standalone.configure.OTPAppConstruction;
